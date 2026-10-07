@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Admin — මගේ පුස්තකාලය</title>
+<title>Admin — පුස්තකාලය</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -86,18 +86,14 @@ details>summary{cursor:pointer;padding:2px 0}
 .ck input{width:auto}
 .ok{background:#e3f5ea;color:#14532d;border:1px solid #86c99f;border-radius:8px;padding:8px 12px;font-size:14px}
 dialog::backdrop{background:rgba(0,0,0,.5)}
-.tabs a{padding:9px 16px;color:var(--mu);text-decoration:none;border-bottom:3px solid transparent;border-radius:7px 7px 0 0}
-.tabs a.on{color:var(--ac);border-bottom-color:var(--ac);font-weight:bold}
-.hid{display:inline-block;background:var(--rd);color:#fff;font-size:12px;border-radius:4px;padding:1px 8px;margin-bottom:4px}
 </style>
 </head>
-<body data-page="admin">
+<body>
 <div id="toast" class="hide"></div>
 <div id="printarea"></div>
 <div class="wrap">
 
 <div class="bar"><h1>📚 මගේ පුස්තකාලය</h1></div>
-<div class="tabs"><a href="index.html">🔍 සෙවීම</a><a href="premium.html">⭐ Premium Member</a><a href="admin.html" class="on">⚙ Admin</a></div>
 
 <!-- ============ SEARCH TAB ============ -->
 <div id="tabS" class="hide">
@@ -258,14 +254,6 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 const SUPABASE_URL = "https://jcijglwpkfluyzrltimk.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpjaWpnbHdwa2ZsdXl6cmx0aW1rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY4MzU3OTUsImV4cCI6MjA4MjQxMTc5NX0.dvT8OiyVEiYn_DhkMakmSq1Vvr4REDr0kYPnyqCtWHs";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-const PAGE = document.body.dataset.page;
-const roleOf = s => (s && s.user && s.user.app_metadata && s.user.app_metadata.role) || "";
-if(PAGE === "search"){
-  const _from = sb.from.bind(sb);
-  sb.from = t => { const q = _from(t);
-    if(t === "books"){ const s = q.select.bind(q); q.select = (...a) => s(...a).eq("is_hidden", false); }
-    return q; };
-}
 const $ = id => document.getElementById(id);
 const FIELDS = [["title","පොතේ නම"],["volume","කොටස (උදා: පළමු කොටස)"],["author","කතුවරයා"],["subject","විෂයය (උදා: ඉතිහාසය/ආගම)"],
   ["source_type","මූලාශ්‍ර වර්ගය"],["publisher","ප්‍රකාශකයා"],["pub_place","ප්‍රකාශන ස්ථානය"],["print_year","මුද්‍රිත වර්ෂය","number"],["pages","පිටු ගණන","number"],["price","මිල","number"],["url","වෙබ් ලිපිනය (URL)"],["isbn","ISBN"],["book_number","පොත් අංකය"],["rack_number","රාක්ක අංකය"],["shelf_number","තට්ටු අංකය"]];
@@ -343,15 +331,9 @@ function resetAdd(){ F.forEach(k => $("f_"+k).value = ""); setLoc("f_", "", "");
 const isEmpty = o => Object.values(o).every(v => v === null);
 
 /* tabs + auth */
-function tab(t){
-  hideSug(); closePop();
-  $("tabS").classList.toggle("hide", t !== "s"); $("tabA").classList.toggle("hide", t !== "a");
-  $("tb_s").classList.toggle("on", t === "s"); $("tb_a").classList.toggle("on", t === "a");
-  if(t === "a") checkAdmin(); else { load(); loadStats(); }
-}
 async function checkAdmin(){
   const {data} = await sb.auth.getSession();
-  isAdmin = !!data.session && roleOf(data.session) !== "premium"; if(data.session && !isAdmin) $("lmsg").textContent = "මෙය Premium ගිණුමකි — Admin අවසර නැත.";
+  isAdmin = !!data.session;
   $("alogin").classList.toggle("hide", isAdmin); $("apanel").classList.toggle("hide", !isAdmin);
   if(isAdmin){ loadA(); loadStats(); refreshNextNo(); mergeLoad(); loadPubs(); }
 }
@@ -504,7 +486,7 @@ function openDD(dups, d, mode){
 function ddEdit(id){ dd_.close(); openEdit(id); }
 async function ddDel(id){ if(await del(id)){ dd.dups = dd.dups.filter(b => b.id !== id); ddRender(); } }
 async function ddGo(){ dd_.close(); if(dd.mode === "add") await insertBook(dd.d); else await updateBook(dd.d); }
-function refresh(){ loadA(); loadStats(); load(); refreshNextNo(); if(scan) scanErrors(true); }
+function refresh(){ loadA(); loadStats(); refreshNextNo(); if(scan) scanErrors(true); }
 
 /* tile (edit/delete only in admin) */
 function tile(b, adm){
@@ -513,11 +495,11 @@ function tile(b, adm){
   const meta = [b.source_type, b.publisher, b.print_year, b.pages != null && b.pages + " පිටු"].filter(Boolean).map(esc).join(" · ");
   const price = b.price != null ? `<div>මිල: ${money(b.price)}</div>` : "";
   const adj = hasAdj(b) ? `<div title="${b.print_year} සිට වසරකට +${Math.round(GROWTH*100)}%">කාලීන: <b>${money(adjVal(b))}</b></div>` : "";
-  return `<div class="tile" style="border-color:${c.bd}${b.is_hidden ? ";border-style:dashed" : ""}">
-    <div class="th" style="background:${c.bg}">${hidBadge(b)}<div class="tt">${esc(b.title) || "(නම නැත)"}</div>${b.volume ? `<div class="tv">${esc(b.volume)}</div>` : ""}</div>
+  return `<div class="tile" style="border-color:${c.bd}">
+    <div class="th" style="background:${c.bg}"><div class="tt">${esc(b.title) || "(නම නැත)"}</div>${b.volume ? `<div class="tv">${esc(b.volume)}</div>` : ""}</div>
     <div class="tb">${b.author ? `<div>${esc(b.author)}</div><hr style="border-color:${c.bd}">` : ""}
       ${b.subject ? `<div>${esc(b.subject)}</div>` : ""}${meta ? `<div style="font-size:13px;color:var(--mu)">${meta}</div>` : ""}${b.isbn ? `<div>ISBN ${esc(b.isbn)}</div>` : ""}${loc ? `<div><b>${esc(loc)}</b></div>` : ""}</div>
-    <div class="tf"><span style="line-height:1.45">${price}${adj}</span>${adm ? `<span class="row"><button class="g" onclick="openEdit(${b.id})">Ed</button><button class="d" onclick="del(${b.id})">Dlt</button></span>` : `<button class="g" title="Copy" onclick="copyBook(${b.id})">📋 Copy</button>`}</div>${adm ? adminRow(b, c) : ""}</div>`;
+    <div class="tf"><span style="line-height:1.45">${price}${adj}</span>${adm ? `<span class="row"><button class="g" onclick="openEdit(${b.id})">Ed</button><button class="d" onclick="del(${b.id})">Dlt</button></span>` : `<button class="g" title="Copy" onclick="copyBook(${b.id})">📋 Copy</button>`}</div></div>`;
 }
 
 /* queries */
@@ -1111,21 +1093,6 @@ function autoPlace(p){
 ["f_","e_"].forEach(p => $(p+"publisher").addEventListener("change", () => autoPlace(p)));
 
 /* start */
-const typeOpts = cur => `<option value="">— වර්ගය —</option>` + [...SRC, ...(cur && !SRC.includes(cur) ? [cur] : [])].map(v => `<option value="${esc(v)}"${v === cur ? " selected" : ""}>${esc(v)}</option>`).join("");
-const hidBadge = b => b.is_hidden && PAGE !== "search" ? `<div class="hid">🙈 Hide Book — ප්‍රසිද්ධියේ නොපෙන්වයි</div>` : "";
-const adminRow = (b, c) => `<div class="tf" style="border-top:1px solid ${c.bd};gap:6px"><select style="padding:3px 4px;font-size:12px" title="මූලාශ්‍ර වර්ගය" onchange="setType(${b.id},this.value)">${typeOpts(b.source_type)}</select><button class="${b.is_hidden ? "" : "g"}" style="padding:3px 8px;font-size:12px;white-space:nowrap" onclick="toggleHide(${b.id})">${b.is_hidden ? "👁 Show Book" : "🙈 Hide Book"}</button></div>`;
-async function setType(id, v){
-  const {error} = await sb.from("books").update({source_type: v || null}).eq("id", id);
-  if(error){ alert(error.message); return; }
-  cache[id].source_type = v || null; toast("වර්ගය වෙනස් කළා ✔");
-}
-async function toggleHide(id){
-  const h = !cache[id].is_hidden;
-  const {error} = await sb.from("books").update({is_hidden: h}).eq("id", id);
-  if(error){ alert(error.message); return; }
-  toast(h ? "පොත සැඟවුවා (Hide) ✔" : "පොත පෙන්වන ලදී (Show) ✔"); refresh();
-}
-load = async function(){};
 checkAdmin();
 </script>
 </body>
